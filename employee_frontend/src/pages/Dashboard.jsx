@@ -5,19 +5,26 @@ import * as mockApi from '../services/mockApi';
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [deptStats, setDeptStats] = useState([]);
+  const [recent, setRecent] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      // Compute from mock store/endpoints in pure stub mode
-      const s = await mockApi.getSummary();
-      const d = await mockApi.getDepartmentStats();
+      // Compute from mock store in pure stub mode
+      const [s, d, r] = await Promise.all([
+        mockApi.getSummary(),
+        mockApi.getDepartmentStats(),
+        mockApi.getRecentHires(5),
+      ]);
       if (!active) return;
-      if (s?.error) setError(s.error.message);
+
+      if (s?.error) setError((prev) => prev || s.error.message);
       else setSummary(s || {});
       if (d?.error) setError((prev) => prev || d.error.message);
-      else setDeptStats(Array.isArray(d) ? d : (d?.items || []));
+      else setDeptStats(Array.isArray(d) ? d : d?.items || []);
+      if (r?.error) setError((prev) => prev || r.error.message);
+      else setRecent(Array.isArray(r) ? r : []);
     }
     load();
     return () => {
@@ -62,6 +69,33 @@ export default function Dashboard() {
                 <tr key={row.department}>
                   <td>{row.department}</td>
                   <td>{row.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="form-card" style={{ minWidth: 360 }}>
+          <h3 style={{ marginTop: 0 }}>Recent Hires</h3>
+          <table className="table" aria-label="Recent Hires">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Date Hired</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent?.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="help-text">No recent hires.</td>
+                </tr>
+              )}
+              {recent?.map((e) => (
+                <tr key={e.id}>
+                  <td>{e.name}</td>
+                  <td>{e.department || '-'}</td>
+                  <td>{e.date_hired || '-'}</td>
                 </tr>
               ))}
             </tbody>

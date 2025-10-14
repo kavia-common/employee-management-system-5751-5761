@@ -1,9 +1,15 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Button from '../common/Button';
 import { useAppContext } from '../../hooks/useAppContext';
 
 export default function Header() {
-  const { theme, toggleTheme } = useAppContext();
+  const { theme, toggleTheme, session } = useAppContext();
+
+  const greeting =
+    session?.displayName && typeof session.displayName === 'string'
+      ? `Hello, ${session.displayName}`
+      : null;
 
   return (
     <header className="header" role="banner" aria-label="Application Header">
@@ -13,13 +19,22 @@ export default function Header() {
         </span>
         <span className="badge">Executive Gray</span>
       </div>
-      <div className="row" aria-label="App Actions">
-        <span aria-label="Mode" className="help-text">
-          Stub Mode · Theme: {theme === 'dark' ? 'Dark' : 'Light'}
+      <div className="row" aria-label="App Actions" style={{ gap: 12 }}>
+        <span aria-label="Theme" className="help-text">
+          Theme: {theme === 'dark' ? 'Dark' : 'Light'}
         </span>
         <Button variant="secondary" onClick={toggleTheme} ariaLabel="Toggle Theme">
           Toggle Theme
         </Button>
+        {!greeting ? (
+          <Link to="/login" className="help-text" aria-label="Login">
+            Login
+          </Link>
+        ) : (
+          <span className="help-text" aria-label="Greeting">
+            {greeting}
+          </span>
+        )}
       </div>
     </header>
   );

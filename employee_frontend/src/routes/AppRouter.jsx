@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Sidebar from '../components/Layout/Sidebar';
@@ -7,6 +7,8 @@ import EmployeesList from '../pages/Employees/List';
 import EmployeeCreate from '../pages/Employees/Create';
 import EmployeeEdit from '../pages/Employees/Edit';
 import EmployeeDetail from '../pages/Employees/Detail';
+import Login from '../pages/Login';
+import { seedIfEmpty } from '../services/mockApi';
 
 /**
  * AppRouter defines open routes for pure stub mode. All routes are accessible
@@ -14,6 +16,11 @@ import EmployeeDetail from '../pages/Employees/Detail';
  */
 // PUBLIC_INTERFACE
 export default function AppRouter() {
+  // Initialize mock dataset on first load for richer demo data
+  useEffect(() => {
+    seedIfEmpty();
+  }, []);
+
   return (
     <BrowserRouter>
       <div className="layout">
@@ -21,6 +28,7 @@ export default function AppRouter() {
         <Sidebar />
         <main className="content">
           <Routes>
+            <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/employees" element={<EmployeesList />} />
             <Route path="/employees/new" element={<EmployeeCreate />} />
