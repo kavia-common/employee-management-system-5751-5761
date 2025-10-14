@@ -1,82 +1,100 @@
-# Lightweight React Template for KAVIA
+# Employee Frontend (React)
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+Web UI for the Employee Management System. Communicates with the FastAPI backend via REST.
 
-## Features
+## Prerequisites
 
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+- Node.js 18+ recommended
+- npm 9+ recommended
 
-## Getting Started
+## Quick Start
 
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-### `npm test`
-
-Launches the test runner in interactive watch mode.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-## Customization
-
-### Colors
-
-The main brand colors are defined as CSS variables in `src/App.css`:
-
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
-}
+1) Install dependencies:
+```
+npm install
 ```
 
-### Components
+2) Configure environment:
+- Copy `.env.local.example` to `.env.local`
+- Set `REACT_APP_API_BASE_URL` to your backend URL:
+  - Local dev: `http://localhost:3001`
+  - Or the backend preview URL if applicable
+- Optionally set `REACT_APP_LOG_LEVEL=info` (or `debug` for verbose client logs in dev)
 
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
+3) Start the app:
+```
+npm start
+```
+Open http://localhost:3000
 
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
+## Environment Variables
 
-## Learn More
+- REACT_APP_API_BASE_URL (e.g., `http://localhost:3001`)
+- REACT_APP_LOG_LEVEL (`debug` | `info` | `warn` | `error`) — default `info`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Notes:
+- Variables MUST be prefixed with `REACT_APP_` to be available in the app.
+- Do not commit secrets to source control.
 
-### Code Splitting
+## API Client Behavior
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- All requests include an `X-Correlation-ID` header for tracing.
+- If a 401 Unauthorized response is received, the client triggers logout and redirects to `/login`.
+- Minimal structured logs are emitted in development honoring `REACT_APP_LOG_LEVEL`.
+- Authorization header is automatically added when a token exists in local storage.
 
-### Analyzing the Bundle Size
+## CORS and API Base URL Alignment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- The backend must allow the frontend origin. For local dev:
+  - Backend `CORS_ORIGINS=http://localhost:3000`
+- The frontend must point to the backend with `REACT_APP_API_BASE_URL`.
+- If you observe CORS errors in the browser console:
+  - Confirm `REACT_APP_API_BASE_URL` is correct (scheme/host/port)
+  - Confirm backend `CORS_ORIGINS` includes your exact frontend origin
 
-### Making a Progressive Web App
+## Smoke Tests (End-to-End)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+With backend and migrations applied:
 
-### Advanced Configuration
+1) Signup
+   - Navigate to `/signup`
+   - Create an account with valid email and password
+   - Expect success (navigate to `/dashboard` or ability to login)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+2) Login
+   - Navigate to `/login`
+   - Login with the same credentials
+   - Verify a token is stored and you are redirected to `/dashboard`
 
-### Deployment
+3) Employees
+   - Navigate to `/employees`
+   - Create a new employee
+   - List/paginate/search employees
+   - View detail and edit/delete the employee
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+4) Dashboard
+   - Navigate to `/dashboard`
+   - Verify summary and department stats are displayed
 
-### `npm run build` fails to minify
+5) Auth checks
+   - Manually remove token from local storage and reload a protected route
+   - Confirm redirection to `/login`
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Testing
+
+Run React tests (non-interactive):
+```
+npm test
+```
+
+## Security
+
+- Never log or store PII, tokens, or passwords in client logs.
+- Use HTTPS in production.
+- Do not commit `.env.local` files.
+
+## Troubleshooting
+
+- If API calls fail, check `REACT_APP_API_BASE_URL` and the backend server status.
+- If you get CORS errors, confirm backend `CORS_ORIGINS` and frontend base URL.
+- For 401 errors, verify credentials and token expiry.
