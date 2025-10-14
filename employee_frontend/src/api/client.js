@@ -3,14 +3,14 @@ import { triggerLogout } from '../context/authEvents';
 
 /**
  * API client:
- * - Base URL from REACT_APP_API_BASE_URL
+ * - Base URL from REACT_APP_API_BASE_URL (normalized, no trailing slash)
+ * - Fallback in local dev to http://localhost:3001 when env is missing
  * - Adds Authorization Bearer token when available
  * - Adds X-Correlation-ID per request
  * - Minimal structured logs in development honoring REACT_APP_LOG_LEVEL
  * - Handles 401 by logging out and redirecting to /login
  */
 
-const BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
 const LOG_LEVEL = (process.env.REACT_APP_LOG_LEVEL || 'INFO').toUpperCase();
 const NODE_ENV = process.env.NODE_ENV;
 
@@ -54,11 +54,52 @@ function correlationId() {
   }
 }
 
+/**
+ * Derive and normalize API base URL:
+ * - Prefer REACT_APP_API_BASE_URL
+ * - Remove any trailing slashes for consistent request URLs
+ * - If not provided and running on localhost:3000, fallback to http://localhost:3001
+ *   to support local development without extra configuration.
+ */
+function deriveBaseUrl() {
+  const raw = (process.env.REACT_APP_API_BASE_URL || '').trim();
+  let derived = raw;
+
+  // In local dev, if not provided, fallback to port 3001
+  if (!derived && typeof window !== 'undefined' && window.location) {
+    const { hostname, port, protocol } = window.location;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (isLocalhost && (port === '3000' || port === '')) {
+      // default to HTTP for local dev backend
+      derived = 'http://localhost:3001';
+      safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing', fallback: derived });
+    }
+  }
+
+  // Normalize: remove trailing slash to avoid accidental double slashes
+  if (derived.endsWith('/')) {
+    derived = derived.replace(/\/+$/, '');
+  }
+
+  if (!derived) {
+    // Surface a clear message in dev to help diagnose 404s due to wrong origin.
+    safeLog('ERROR', 'api_base_url_missing', {
+      message: 'REACT_APP_API_BASE_URL is not set; API requests may target the frontend origin and fail with 404.',
+    });
+  } else {
+    safeLog('DEBUG', 'api_base_url_configured', { baseURL: derived });
+  }
+
+  return derived;
+}
+
+const BASE_URL = deriveBaseUrl();
+
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000, // 15s timeout for network resilience
   headers: {
-    'Accept': 'application/json',
+    Accept: 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
   },
 });
