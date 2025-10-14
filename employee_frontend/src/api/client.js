@@ -3,7 +3,7 @@
  * Axios client configured for pure stub mode (no authentication).
  *
  * Behavior:
- * - Base URL from REACT_APP_API_BASE_URL (normalized without trailing slash)
+ * - Base URL from REACT_APP_API_BASE_URL or window.API_BASE_URL (normalized without trailing slash)
  * - If missing, derive from current origin:
  *     * If port is :3000 (typical React dev), switch to :3001
  *     * If localhost without explicit port, default to http://localhost:3001
@@ -65,29 +65,49 @@ function correlationId() {
  * - Fallback from current window.location when available
  */
 function deriveBaseUrl() {
-  const raw = (process.env.REACT_APP_API_BASE_URL || '').trim();
-  let derived = raw;
+  // 1) Prefer env
+  const envRaw = (process.env.REACT_APP_API_BASE_URL || '').trim();
+  let derived = envRaw;
+  let source = envRaw ? 'env' : null;
 
+  // 2) Then window.API_BASE_URL if provided by host page
+  if (!derived && typeof window !== 'undefined') {
+    try {
+      const winRaw = (window.API_BASE_URL || '').toString().trim();
+      if (winRaw) {
+        derived = winRaw;
+        source = 'window';
+      }
+    } catch {
+      // ignore if window/API_BASE_URL not accessible
+    }
+  }
+
+  // 3) Fallback from current window.location when available
   if (!derived && typeof window !== 'undefined' && window.location) {
     const { protocol, hostname, port } = window.location;
 
     if (port === '3000') {
       // Replace :3000 (frontend) with :3001 (backend)
       derived = `${protocol}//${hostname}:3001`;
+      source = 'fallback_port_switch';
       safeLog('WARN', 'api_base_url_fallback_used', { reason: 'origin_port_3000_replaced', fallback: derived });
     } else {
       const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
       if (isLocalhost) {
         derived = 'http://localhost:3001';
+        source = 'fallback_localhost';
         safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing_localhost', fallback: derived });
       } else {
         // Use relative path for same-origin proxy setups
         derived = '';
+        source = 'relative';
         safeLog('INFO', 'api_base_url_relative', { reason: 'same_origin_or_proxy' });
       }
     }
   }
 
+  // Normalize (remove trailing slashes)
   if (derived && derived.endsWith('/')) {
     derived = derived.replace(/\/*$/, '');
   }
@@ -95,7 +115,7 @@ function deriveBaseUrl() {
   if (!derived) {
     safeLog('INFO', 'api_base_url_empty_using_relative', {});
   } else {
-    safeLog('DEBUG', 'api_base_url_configured', { baseURL: derived });
+    safeLog('DEBUG', 'api_base_url_configured', { baseURL: derived, source });
   }
 
   return derived;
