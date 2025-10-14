@@ -4,11 +4,17 @@ import { triggerLogout } from '../context/authEvents';
 /**
  * API client:
  * - Base URL from REACT_APP_API_BASE_URL (normalized, no trailing slash)
- * - Fallback in local dev to http://localhost:3001 when env is missing
+ * - Fallback derivation from current origin when env is missing:
+ *     * If origin uses port :3000, replace with :3001 to target backend
+ *     * Otherwise, if on localhost, default to http://localhost:3001
  * - Adds Authorization Bearer token when available
  * - Adds X-Correlation-ID per request
  * - Minimal structured logs in development honoring REACT_APP_LOG_LEVEL
  * - Handles 401 by logging out and redirecting to /login
+ *
+ * Security considerations:
+ * - Never log PII such as passwords, emails, or tokens
+ * - Only log high-level events and metadata, not request bodies
  */
 
 const LOG_LEVEL = (process.env.REACT_APP_LOG_LEVEL || 'INFO').toUpperCase();
@@ -30,7 +36,7 @@ function safeLog(level, message, meta = {}) {
   delete redactedMeta.password;
   delete redactedMeta.token;
   delete redactedMeta.authorization;
-  // Structured log
+
   // eslint-disable-next-line no-console
   console.log(
     JSON.stringify({
@@ -58,33 +64,43 @@ function correlationId() {
  * Derive and normalize API base URL:
  * - Prefer REACT_APP_API_BASE_URL
  * - Remove any trailing slashes for consistent request URLs
- * - If not provided and running on localhost:3000, fallback to http://localhost:3001
- *   to support local development without extra configuration.
+ * - If not provided, derive from current origin and apply port replacement:
+ *   - If current origin ends with :3000, replace with :3001
+ *   - Otherwise, if localhost, fallback to http://localhost:3001
  */
 function deriveBaseUrl() {
+  // Prefer explicit environment variable if provided.
   const raw = (process.env.REACT_APP_API_BASE_URL || '').trim();
   let derived = raw;
 
-  // In local dev, if not provided, fallback to port 3001
+  // If not provided, derive from current origin with replacement rule
   if (!derived && typeof window !== 'undefined' && window.location) {
-    const { hostname, port, protocol } = window.location;
-    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-    if (isLocalhost && (port === '3000' || port === '')) {
-      // default to HTTP for local dev backend
-      derived = 'http://localhost:3001';
-      safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing', fallback: derived });
+    const { protocol, hostname, port } = window.location;
+
+    if (port === '3000') {
+      // Preserve protocol and hostname, change to backend port 3001
+      derived = `${protocol}//${hostname}:3001`;
+      safeLog('WARN', 'api_base_url_fallback_used', { reason: 'origin_port_3000_replaced', fallback: derived });
+    } else {
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      if (isLocalhost) {
+        derived = 'http://localhost:3001';
+        safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing_localhost', fallback: derived });
+      }
     }
   }
 
-  // Normalize: remove trailing slash to avoid accidental double slashes
-  if (derived.endsWith('/')) {
+  // Normalize: remove trailing slashes to avoid accidental double slashes
+  if (derived && derived.endsWith('/')) {
     derived = derived.replace(/\/+$/, '');
   }
 
   if (!derived) {
     // Surface a clear message in dev to help diagnose 404s due to wrong origin.
     safeLog('ERROR', 'api_base_url_missing', {
-      message: 'REACT_APP_API_BASE_URL is not set; API requests may target the frontend origin and fail with 404.',
+      message:
+        'REACT_APP_API_BASE_URL is not set; API requests may target the frontend origin and fail with 404. ' +
+        'Set REACT_APP_API_BASE_URL to your backend (e.g., http://localhost:3001).',
     });
   } else {
     safeLog('DEBUG', 'api_base_url_configured', { baseURL: derived });
@@ -94,6 +110,16 @@ function deriveBaseUrl() {
 }
 
 const BASE_URL = deriveBaseUrl();
+
+// Dev-only: print the resolved base URL once to aid debugging (exclude PII).
+if (process.env.NODE_ENV === 'development' && typeof console !== 'undefined' && console.info) {
+  try {
+    // eslint-disable-next-line no-console
+    console.info(`[api] baseURL: ${BASE_URL || '(not set)'}`);
+  } catch {
+    // no-op
+  }
+}
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -112,6 +138,15 @@ api.interceptors.request.use(
     if (token) {
       cfg.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Guard: if using baseURL and url is relative without a leading slash, add it to avoid accidental path join issues.
+    if (cfg.baseURL && typeof cfg.url === 'string') {
+      const isAbsolute = /^https?:\/\//i.test(cfg.url);
+      if (!isAbsolute && !cfg.url.startsWith('/')) {
+        cfg.url = `/${cfg.url}`;
+      }
+    }
+
     const cid = correlationId();
     cfg.headers['X-Correlation-ID'] = cid;
     // attach cid to config for downstream extraction

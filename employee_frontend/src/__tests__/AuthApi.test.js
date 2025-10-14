@@ -86,4 +86,37 @@ describe('authApi and API client configuration', () => {
     // Restore window.location
     window.location = originalLocation;
   });
+
+  test('client replaces :3000 with :3001 for preview origin when env is missing', async () => {
+    const axiosCreateMock = jest.fn(() => ({
+      interceptors: {
+        request: { use: jest.fn() },
+        response: { use: jest.fn() },
+      },
+    }));
+    jest.doMock('axios', () => ({ create: axiosCreateMock }));
+
+    // Ensure env is not set
+    delete process.env.REACT_APP_API_BASE_URL;
+    process.env.REACT_APP_LOG_LEVEL = 'error';
+
+    // Mock window.location for preview scenario (https + custom host + :3000)
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = {
+      hostname: 'vscode-internal-19668-beta.beta01.cloud.kavia.ai',
+      port: '3000',
+      protocol: 'https:',
+      pathname: '/',
+      assign: jest.fn(),
+    };
+
+    await import('../api/client');
+
+    const callArgs = axiosCreateMock.mock.calls[0][0] || {};
+    expect(callArgs.baseURL).toBe('https://vscode-internal-19668-beta.beta01.cloud.kavia.ai:3001');
+
+    // Restore window.location
+    window.location = originalLocation;
+  });
 });

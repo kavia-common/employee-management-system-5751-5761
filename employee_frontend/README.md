@@ -96,5 +96,8 @@ npm test
 ## Troubleshooting
 
 - If API calls fail, check `REACT_APP_API_BASE_URL` and the backend server status.
+  - In local development, ensure it points to the backend on port `3001` (not the frontend port `3000`), e.g. `http://localhost:3001`.
+  - In preview environments, use the backend preview URL. If your frontend runs on `:3000`, the backend is typically on the same host at `:3001`.
+- The client logs the effective API base URL once in development via `console.info`. This helps verify configuration without logging any sensitive data.
 - If you get CORS errors, confirm backend `CORS_ORIGINS` and frontend base URL.
 - For 401 errors, verify credentials and token expiry.
