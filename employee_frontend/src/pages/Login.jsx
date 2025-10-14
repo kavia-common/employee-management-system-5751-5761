@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { useAppContext } from '../hooks/useAppContext';
 
@@ -7,7 +7,8 @@ import { useAppContext } from '../hooks/useAppContext';
  * Login.jsx
  * Simple non-auth login form that accepts any credentials.
  * - Does NOT call any API or store tokens.
- * - On submit, sets a display name in AppContext and navigates to /employees.
+ * - On submit, sets a display name in AppContext and navigates to the original protected route
+ *   (from location.state.from) or to /dashboard by default.
  *
  * Security notes:
  * - No passwords persist or are logged.
@@ -17,15 +18,16 @@ import { useAppContext } from '../hooks/useAppContext';
 // PUBLIC_INTERFACE
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { session, setSession } = useAppContext();
 
   // Accept any input; no validation errors or API calls
   const [form, setForm] = useState({ email: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  // If already "logged in" (stub), redirect away
+  // If already "logged in" (stub), redirect away to the dashboard
   if (session?.displayName) {
-    return <Navigate to="/employees" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const onChange = (e) => {
@@ -47,7 +49,15 @@ export default function Login() {
           .join(' ') || 'User';
 
       setSession({ displayName });
-      navigate('/employees', { replace: true });
+
+      // Redirect to the originally requested path if available (and not /login), else /dashboard
+      const fromPath = location?.state?.from?.pathname;
+      const target =
+        typeof fromPath === 'string' && fromPath.startsWith('/') && fromPath !== '/login'
+          ? fromPath
+          : '/dashboard';
+
+      navigate(target, { replace: true });
     } catch {
       // No-op; in stub we do not show API errors
     } finally {
