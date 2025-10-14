@@ -1,15 +1,26 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../common/Button';
 import { useAppContext } from '../../hooks/useAppContext';
 
 export default function Header() {
-  const { theme, toggleTheme, session } = useAppContext();
+  const navigate = useNavigate();
+  const { theme, toggleTheme, session, clearSession } = useAppContext();
 
   const greeting =
     session?.displayName && typeof session.displayName === 'string'
       ? `Hello, ${session.displayName}`
       : null;
+
+  const onSignOut = () => {
+    try {
+      clearSession();
+    } catch {
+      // ignore
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   return (
     <header className="header" role="banner" aria-label="Application Header">
@@ -31,9 +42,14 @@ export default function Header() {
             Login
           </Link>
         ) : (
-          <span className="help-text" aria-label="Greeting">
-            {greeting}
-          </span>
+          <>
+            <span className="help-text" aria-label="Greeting">
+              {greeting}
+            </span>
+            <Button variant="secondary" onClick={onSignOut} ariaLabel="Sign out">
+              Sign out
+            </Button>
+          </>
         )}
       </div>
     </header>

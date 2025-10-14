@@ -39,9 +39,7 @@ Notes:
 ## API Client Behavior
 
 - All requests include an `X-Correlation-ID` header for tracing.
-- If a 401 Unauthorized response is received, the client triggers logout and redirects to `/login`.
 - Minimal structured logs are emitted in development honoring `REACT_APP_LOG_LEVEL`.
-- Authorization header is automatically added when a token exists in local storage.
 
 ## CORS and API Base URL Alignment
 
@@ -54,31 +52,17 @@ Notes:
 
 ## Smoke Tests (End-to-End)
 
-With backend and migrations applied:
+Stub mode (no real authentication required):
 
-1) Signup
-   - Navigate to `/signup`
-   - Create an account with valid email and password
-   - Expect success (navigate to `/dashboard` or ability to login)
-
-2) Login
-   - Navigate to `/login`
-   - Login with the same credentials
-   - Verify a token is stored and you are redirected to `/dashboard`
-
-3) Employees
+1) Employees
    - Navigate to `/employees`
    - Create a new employee
    - List/paginate/search employees
    - View detail and edit/delete the employee
 
-4) Dashboard
+2) Dashboard
    - Navigate to `/dashboard`
    - Verify summary and department stats are displayed
-
-5) Auth checks
-   - Manually remove token from local storage and reload a protected route
-   - Confirm redirection to `/login`
 
 ## Testing
 
