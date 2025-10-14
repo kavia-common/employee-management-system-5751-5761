@@ -6,6 +6,7 @@
 
 import React, { useEffect } from 'react';
 import './App.css';
+import './theme/styles.css';
 import { AuthProvider } from './context/AuthContext';
 import AppRouter from './routes/AppRouter';
 

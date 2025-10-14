@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import * as employeeApi from '../../api/employeeApi';
+import * as mockApi from '../../services/mockApi';
 import Button from '../../components/common/Button';
 
 // PUBLIC_INTERFACE
@@ -12,7 +12,7 @@ export default function EmployeeDetail() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const res = await employeeApi.getEmployee(id);
+      const res = await mockApi.getById(id);
       if (!active) return;
       if (res?.error) setError(res.error.message);
       else setEmp(res);

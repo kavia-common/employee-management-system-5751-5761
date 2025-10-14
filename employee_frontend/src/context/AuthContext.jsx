@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import * as authApi from '../api/authApi';
+import * as authApi from '../services/stubAuth';
 import { setLogoutHandler } from './authEvents';
 
 /**

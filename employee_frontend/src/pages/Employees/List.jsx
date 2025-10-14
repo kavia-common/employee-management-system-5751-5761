@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Button from '../../components/common/Button';
-import * as employeeApi from '../../api/employeeApi';
+import * as mockApi from '../../services/mockApi';
 
 const PAGE_SIZE = 10;
 
@@ -19,17 +19,17 @@ export default function EmployeesList() {
 
   const fetchData = async () => {
     setState((s) => ({ ...s, loading: true, error: null }));
-    const result = await employeeApi.listEmployees({
+    const result = await mockApi.getEmployees({
       page: state.page,
       pageSize: PAGE_SIZE,
-      search: state.search.trim(),
+      q: state.search.trim(),
     });
     if (result?.error) {
       setState((s) => ({ ...s, loading: false, error: result.error.message }));
       return;
     }
-    const items = result?.items || result || [];
-    const total = result?.total || items.length;
+    const items = result?.items || [];
+    const total = typeof result?.total === 'number' ? result.total : items.length;
     setState((s) => ({ ...s, items, total, loading: false }));
   };
 
@@ -47,7 +47,7 @@ export default function EmployeesList() {
   const onDelete = async (id) => {
     const confirmed = window.confirm('Are you sure you want to delete this employee?');
     if (!confirmed) return;
-    const res = await employeeApi.deleteEmployee(id);
+    const res = await mockApi.remove(id);
     if (res?.error) {
       alert(res.error.message || 'Delete failed'); // non-PII
       return;
