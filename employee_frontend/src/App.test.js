@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+/**
+ * App renders AppRouter, which redirects unauthenticated users to /login.
+ * Validate the login screen heading is present.
+ */
+test('renders login screen by default for unauthenticated users', async () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  const heading = await screen.findByRole('heading', { name: /sign in/i });
+  expect(heading).toBeInTheDocument();
 });

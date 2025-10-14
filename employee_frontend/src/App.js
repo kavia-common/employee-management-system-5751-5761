@@ -1,47 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+/**
+ * App.js
+ * Application entry that wires AuthProvider and AppRouter and applies the Executive Gray theme.
+ * This file focuses on shell-only concerns; routing and business pages are isolated in routes/pages.
+ */
+
+import React, { useEffect } from 'react';
 import './App.css';
+import { AuthProvider } from './context/AuthContext';
+import AppRouter from './routes/AppRouter';
 
 // PUBLIC_INTERFACE
 function App() {
-  const [theme, setTheme] = useState('light');
-
-  // Effect to apply theme to document element
+  // Persist theme to root for CSS variables; default to light
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+    const preferred = localStorage.getItem('ui_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', preferred);
+  }, []);
 
   return (
     <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
     </div>
   );
 }
