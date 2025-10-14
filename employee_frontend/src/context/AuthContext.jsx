@@ -50,21 +50,34 @@ export function AuthProvider({ children }) {
     if (!email || !password) {
       return { error: { code: 'VALIDATION_ERROR', message: 'Email and password are required.' } };
     }
+
+    // Use the authApi which normalizes the backend login response
     const result = await authApi.login(email, password);
     if (result?.error) {
+      // Pass through API-provided error (e.g., invalid credentials) or our normalized errors
       return result;
     }
-    const { token: newToken, user: newUser } = result || {};
-    if (!newToken) {
-      return { error: { code: 'INVALID_RESPONSE', message: 'Authentication response missing token.' } };
+
+    // Expect { access_token, token_type?, user? }
+    const accessToken = result?.access_token;
+    const nextUser = result?.user || null;
+    if (!accessToken) {
+      // Defensive check (should be handled by authApi already)
+      return { error: { code: 'INVALID_RESPONSE', message: 'Login failed: missing token from server.' } };
     }
+
     // Persist without logging sensitive data
-    localStorage.setItem('auth_token', newToken);
-    if (newUser) {
-      localStorage.setItem('auth_user', JSON.stringify(newUser));
+    try {
+      localStorage.setItem('auth_token', accessToken);
+      if (nextUser) {
+        localStorage.setItem('auth_user', JSON.stringify(nextUser));
+      }
+    } catch {
+      // Storage may be blocked (e.g., privacy settings). Continue with in-memory token for the session.
     }
-    setToken(newToken);
-    setUser(newUser || null);
+
+    setToken(accessToken);
+    setUser(nextUser);
     return { success: true };
   }, []);
 
@@ -78,14 +91,19 @@ export function AuthProvider({ children }) {
     if (result?.error) {
       return result;
     }
-    // Optional: directly log in after signup if backend returns token
-    if (result?.token) {
-      localStorage.setItem('auth_token', result.token);
-      if (result?.user) {
-        localStorage.setItem('auth_user', JSON.stringify(result.user));
+    // Optional: directly log in after signup if backend returns token-like structure
+    const accessToken = result?.access_token || result?.token;
+    if (accessToken) {
+      try {
+        localStorage.setItem('auth_token', accessToken);
+        if (result?.user) {
+          localStorage.setItem('auth_user', JSON.stringify(result.user));
+        }
+      } catch {
+        // ignore storage errors
       }
-      setToken(result.token);
-      setUser(result.user || null);
+      setToken(accessToken);
+      setUser(result?.user || null);
       return { success: true };
     }
     return { success: true };
