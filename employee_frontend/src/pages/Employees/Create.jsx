@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/common/Button';
-import * as employeeApi from '../../api/employeeApi';
+import * as mockApi from '../../services/mockApi';
 
 function validate(form) {
   const errs = {};
@@ -32,7 +32,7 @@ export default function EmployeeCreate() {
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    const res = await employeeApi.createEmployee(form);
+    const res = await mockApi.create(form);
     setSubmitting(false);
     if (res?.error) {
       setApiError(res.error.message || 'Create failed.');

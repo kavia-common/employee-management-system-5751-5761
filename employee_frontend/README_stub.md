@@ -1,26 +1,37 @@
 # Employee Frontend [STUB]
 
-This stub UI mirrors the intended structure but uses a simple mock API client and fake auth to run without external services.
+This stub UI mirrors the intended structure but uses a simple mock API client and runs without any authentication, database, or environment variables.
 
 Key points:
-- No real authentication; a fake token is stored in memory/localStorage.
-- Backend base URL defaults to http://localhost:3001 when frontend runs on :3000.
-- Pages: Login, Dashboard (home), Employees list, Employee detail.
+- No authentication at all. All pages are accessible without tokens or login.
+- Backend base URL resolution:
+  - If the app runs on :3000 (typical React dev), requests target http://localhost:3001 by default.
+  - Otherwise, if running on localhost without a set env, default is http://localhost:3001.
+  - If neither applies, the client uses relative paths (use a same-origin proxy if needed).
+- Pages: Dashboard (home), Employees list, Employee detail, Create/Edit.
 - Styling uses the Executive Gray palette.
 
 Run:
-npm start
+- npm install
+- npm start
+Open http://localhost:3000
 
 Pages:
-- /login
 - /dashboard
 - /employees
 - /employees/:id
+- /employees/:id/edit
+- /employees/new
 
 Services:
-- src/services/mockApi.js: CRUD/search/pagination for employees
-- src/services/stubAuth.js: login/signup/logout against backend [STUB]
+- src/services/mockApi.js: CRUD/search/pagination for employees + derived dashboard stats
 - src/utils/logger.js: console logger wrapper
+
+Tests:
+- npm test
+Notes for tests:
+- Tests assert open routing (no redirect to login).
+- Client baseURL fallback behavior is validated.
 
 Notes:
 - This is not production-ready. Avoid using with real data.

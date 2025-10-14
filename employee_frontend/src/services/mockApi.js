@@ -3,7 +3,8 @@
  * Thin client for the backend [STUB] endpoints at http://localhost:3001.
  * Uses the shared axios client for consistency and error handling.
  *
- * Note: The base URL is derived to default to :3001 when the frontend runs on :3000.
+ * Note: The base URL is derived to default to :3001 when the frontend runs on :3000,
+ * and falls back to relative path for same-origin proxying.
  */
 import { api, toResult } from '../api/client';
 
@@ -53,4 +54,38 @@ export async function update(id, payload) {
 export async function remove(id) {
   if (!id) return { error: { code: 'VALIDATION_ERROR', message: 'ID is required.' } };
   return toResult(api.delete(`/employees/${encodeURIComponent(id)}`));
+}
+
+// PUBLIC_INTERFACE
+export async function getSummary() {
+  /**
+   * Computes simple summary from employees. In pure stub mode we fetch a large page
+   * and derive counts locally to avoid backend dependencies.
+   */
+  const res = await getEmployees({ page: 1, pageSize: 1000 });
+  if (res?.error) return res;
+  const items = Array.isArray(res?.items) ? res.items : [];
+  const total = items.length;
+  // Consider "active" all entries for stub purposes
+  const active = items.length;
+  return {
+    total_employees: total,
+    active_employees: active,
+  };
+}
+
+// PUBLIC_INTERFACE
+export async function getDepartmentStats() {
+  /**
+   * Returns counts by department computed locally. Missing departments are grouped as 'Unassigned'.
+   */
+  const res = await getEmployees({ page: 1, pageSize: 1000 });
+  if (res?.error) return res;
+  const items = Array.isArray(res?.items) ? res.items : [];
+  const counts = items.reduce((acc, e) => {
+    const key = e?.department || 'Unassigned';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.keys(counts).map((department) => ({ department, count: counts[department] }));
 }

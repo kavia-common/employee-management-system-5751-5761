@@ -1,21 +1,21 @@
-import axios from 'axios';
-import { triggerLogout } from '../context/authEvents';
-
 /**
- * API client:
- * - Base URL from REACT_APP_API_BASE_URL (normalized, no trailing slash)
- * - Fallback derivation from current origin when env is missing:
- *     * If origin uses port :3000, replace with :3001 to target backend
- *     * Otherwise, if on localhost, default to http://localhost:3001
- * - Adds Authorization Bearer token when available
- * - Adds X-Correlation-ID per request
- * - Minimal structured logs in development honoring REACT_APP_LOG_LEVEL
- * - Handles 401 by logging out and redirecting to /login
+ * api/client.js
+ * Axios client configured for pure stub mode (no authentication).
  *
- * Security considerations:
- * - Never log PII such as passwords, emails, or tokens
- * - Only log high-level events and metadata, not request bodies
+ * Behavior:
+ * - Base URL from REACT_APP_API_BASE_URL (normalized without trailing slash)
+ * - If missing, derive from current origin:
+ *     * If port is :3000 (typical React dev), switch to :3001
+ *     * If localhost without explicit port, default to http://localhost:3001
+ *     * Otherwise, leave baseURL empty to allow relative path / same-origin proxying
+ * - Adds X-Correlation-ID per request for basic tracing
+ * - Minimal, safe JSON-structured logging in development honoring REACT_APP_LOG_LEVEL
+ *
+ * Security:
+ * - No tokens, no auth headers, no PII in logs.
  */
+
+import axios from 'axios';
 
 const LOG_LEVEL = (process.env.REACT_APP_LOG_LEVEL || 'INFO').toUpperCase();
 const NODE_ENV = process.env.NODE_ENV;
@@ -31,7 +31,6 @@ function canLog(level) {
 
 function safeLog(level, message, meta = {}) {
   if (!canLog(level)) return;
-  // Do not log PII: never include raw email, password, tokens, or payloads
   const redactedMeta = { ...meta };
   delete redactedMeta.password;
   delete redactedMeta.token;
@@ -53,7 +52,6 @@ function correlationId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
       return crypto.randomUUID();
     }
-    // Fallback
     return 'cid-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   } catch {
     return 'cid-' + Date.now();
@@ -61,24 +59,20 @@ function correlationId() {
 }
 
 /**
- * Derive and normalize API base URL:
+ * Derive and normalize API base URL for stub mode.
  * - Prefer REACT_APP_API_BASE_URL
- * - Remove any trailing slashes for consistent request URLs
- * - If not provided, derive from current origin and apply port replacement:
- *   - If current origin ends with :3000, replace with :3001
- *   - Otherwise, if localhost, fallback to http://localhost:3001
+ * - Normalize by removing trailing slashes
+ * - Fallback from current window.location when available
  */
 function deriveBaseUrl() {
-  // Prefer explicit environment variable if provided.
   const raw = (process.env.REACT_APP_API_BASE_URL || '').trim();
   let derived = raw;
 
-  // If not provided, derive from current origin with replacement rule
   if (!derived && typeof window !== 'undefined' && window.location) {
     const { protocol, hostname, port } = window.location;
 
     if (port === '3000') {
-      // Preserve protocol and hostname, change to backend port 3001
+      // Replace :3000 (frontend) with :3001 (backend)
       derived = `${protocol}//${hostname}:3001`;
       safeLog('WARN', 'api_base_url_fallback_used', { reason: 'origin_port_3000_replaced', fallback: derived });
     } else {
@@ -86,22 +80,20 @@ function deriveBaseUrl() {
       if (isLocalhost) {
         derived = 'http://localhost:3001';
         safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing_localhost', fallback: derived });
+      } else {
+        // Use relative path for same-origin proxy setups
+        derived = '';
+        safeLog('INFO', 'api_base_url_relative', { reason: 'same_origin_or_proxy' });
       }
     }
   }
 
-  // Normalize: remove trailing slashes to avoid accidental double slashes
   if (derived && derived.endsWith('/')) {
-    derived = derived.replace(/\/+$/, '');
+    derived = derived.replace(/\/*$/, '');
   }
 
   if (!derived) {
-    // Surface a clear message in dev to help diagnose 404s due to wrong origin.
-    safeLog('ERROR', 'api_base_url_missing', {
-      message:
-        'REACT_APP_API_BASE_URL is not set; API requests may target the frontend origin and fail with 404. ' +
-        'Set REACT_APP_API_BASE_URL to your backend (e.g., http://localhost:3001).',
-    });
+    safeLog('INFO', 'api_base_url_empty_using_relative', {});
   } else {
     safeLog('DEBUG', 'api_base_url_configured', { baseURL: derived });
   }
@@ -111,19 +103,19 @@ function deriveBaseUrl() {
 
 const BASE_URL = deriveBaseUrl();
 
-// Dev-only: print the resolved base URL once to aid debugging (exclude PII).
+// Dev convenience: print resolved base URL
 if (process.env.NODE_ENV === 'development' && typeof console !== 'undefined' && console.info) {
   try {
     // eslint-disable-next-line no-console
-    console.info(`[api] baseURL: ${BASE_URL || '(not set)'}`);
+    console.info(`[api] baseURL: ${BASE_URL || '(relative)'}`);
   } catch {
     // no-op
   }
 }
 
 export const api = axios.create({
-  baseURL: BASE_URL,
-  timeout: 15000, // 15s timeout for network resilience
+  baseURL: BASE_URL || undefined,
+  timeout: 15000,
   headers: {
     Accept: 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
@@ -133,13 +125,9 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const cfg = { ...config };
-    const token = localStorage.getItem('auth_token');
     cfg.headers = cfg.headers || {};
-    if (token) {
-      cfg.headers.Authorization = `Bearer ${token}`;
-    }
 
-    // Guard: if using baseURL and url is relative without a leading slash, add it to avoid accidental path join issues.
+    // Ensure relative paths start with "/" when baseURL is present to avoid accidental concatenations
     if (cfg.baseURL && typeof cfg.url === 'string') {
       const isAbsolute = /^https?:\/\//i.test(cfg.url);
       if (!isAbsolute && !cfg.url.startsWith('/')) {
@@ -149,7 +137,6 @@ api.interceptors.request.use(
 
     const cid = correlationId();
     cfg.headers['X-Correlation-ID'] = cid;
-    // attach cid to config for downstream extraction
     cfg.metadata = { ...(cfg.metadata || {}), correlationId: cid };
     safeLog('DEBUG', 'http_request', {
       method: cfg.method,
@@ -180,20 +167,7 @@ api.interceptors.response.use(
       cfg?.metadata?.correlationId ||
       correlationId();
 
-    if (status === 401) {
-      safeLog('WARN', 'http_unauthorized', { status, correlationId: cid });
-      // Force logout and redirect to login
-      try {
-        triggerLogout();
-      } catch {
-        // no-op
-      }
-      if (typeof window !== 'undefined' && window.location?.pathname !== '/login') {
-        window.location.assign('/login');
-      }
-    } else {
-      safeLog('ERROR', 'http_response_error', { status, correlationId: cid });
-    }
+    safeLog('ERROR', 'http_response_error', { status, correlationId: cid });
     return Promise.reject({
       error: {
         code: status || error?.code || 'HTTP_ERROR',

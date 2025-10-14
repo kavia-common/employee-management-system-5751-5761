@@ -2,11 +2,10 @@ import { render, screen } from '@testing-library/react';
 import App from './App';
 
 /**
- * App renders AppRouter, which redirects unauthenticated users to /login.
- * Validate the login screen heading is present.
+ * In pure stub mode, the app has no authentication and should render the dashboard by default.
  */
-test('renders login screen by default for unauthenticated users', async () => {
+test('renders dashboard by default', async () => {
   render(<App />);
-  const heading = await screen.findByRole('heading', { name: /sign in/i });
+  const heading = await screen.findByRole('heading', { name: /dashboard/i });
   expect(heading).toBeInTheDocument();
 });

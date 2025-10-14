@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as dashboardApi from '../api/dashboardApi';
+import * as mockApi from '../services/mockApi';
 
 // PUBLIC_INTERFACE
 export default function Dashboard() {
@@ -10,8 +10,9 @@ export default function Dashboard() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const s = await dashboardApi.getSummary();
-      const d = await dashboardApi.getDepartmentStats();
+      // Compute from mock store/endpoints in pure stub mode
+      const s = await mockApi.getSummary();
+      const d = await mockApi.getDepartmentStats();
       if (!active) return;
       if (s?.error) setError(s.error.message);
       else setSummary(s || {});
