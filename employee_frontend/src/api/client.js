@@ -66,7 +66,7 @@ function correlationId() {
  */
 function deriveBaseUrl() {
   // 1) Prefer env
-  const envRaw = (process.env.REACT_APP_API_BASE_URL || '').trim();
+  const envRaw = (process.env.REACT_APP_API_BASE_URL || 'https://vscode-internal-23063-beta.beta01.cloud.kavia.ai:3001').trim();
   let derived = envRaw;
   let source = envRaw ? 'env' : null;
 
@@ -95,7 +95,7 @@ function deriveBaseUrl() {
     } else {
       const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
       if (isLocalhost) {
-        derived = 'http://localhost:3001';
+        derived = 'https://vscode-internal-23063-beta.beta01.cloud.kavia.ai:3001';
         source = 'fallback_localhost';
         safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing_localhost', fallback: derived });
       } else {
