@@ -83,13 +83,17 @@ function mapFormToUpdatePayload(form) {
 }
 
 // PUBLIC_INTERFACE
-export async function listEmployees({ page = 1, pageSize = DEFAULT_PAGE_SIZE, search = '' } = {}) {
+export async function listEmployees({ page = 1, pageSize = DEFAULT_PAGE_SIZE, search = '', sort = '' } = {}) {
   /**
    * List employees, mapping backend response to UI-friendly structure.
+   * Supports pagination, optional search, and sorting.
+   * - sort: maps directly to backend 'sort' param (e.g., 'last_name', 'last_name:desc', '-date_hired')
    * Returns { items, total, page, pageSize, pages } or { error }.
    */
   const params = { page, size: pageSize };
   if (search) params.search = search;
+  if (sort) params.sort = sort;
+
   const res = await toResult(api.get('/employees', { params }));
   if (res?.error) return res;
 

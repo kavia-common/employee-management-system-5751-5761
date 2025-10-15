@@ -46,7 +46,11 @@ Notes:
 
 ## Employees CRUD
 
-- List: GET `/employees?page=<n>&size=<n>&search=<term?>`
+- List: GET `/employees?page=<n>&size=<n>&search=<term?>&sort=<field[:desc]?>`
+  - Pagination, search, and sorting are server-driven.
+  - Sorting examples: `last_name`, `last_name:desc`, `email`, `department`.
+  - UI columns (Name/Email/Department) are clickable to toggle asc/desc/none and update the `sort` query param.
+  - Search box is debounced (~400ms) and updates the `search` query param and resets to page 1.
 - Get: GET `/employees/{id}`
 - Create: POST `/employees`
 - Update: PUT `/employees/{id}`
@@ -55,6 +59,13 @@ Notes:
 Field mapping:
 - UI uses `name` which maps to backend `first_name` + `last_name`.
 - UI uses `role` which maps to backend `title`.
+
+UX:
+- Loading states are shown while fetching data.
+- Validation errors are displayed inline from server responses where applicable.
+- Success/failure toasts for delete; create/edit navigate and show inline messages on failure.
+- 401 Unauthorized responses trigger a global logout and redirect to `/login`.
+- All requests include `X-Correlation-ID` and errors log correlation IDs in the console (dev only).
 
 ## API Client Behavior
 
