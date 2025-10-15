@@ -1,117 +1,160 @@
+ /**
+  * AuthContext.jsx
+  * Authentication context for managing JWT token, current user, and auth flows.
+  * 
+  * Exposes:
+  * - isAuthenticated: boolean
+  * - isInitializing: boolean (initial token->/auth/me check)
+  * - user: current authenticated user (or null)
+  * - login(email, password): Promise<void>
+  * - signup({ email, password, full_name }): Promise<void>
+  * - logout(): void
+  * 
+  * Security:
+  * - Never logs or exposes tokens
+  * - Stores token in localStorage (if allowed) and memory
+  */
+
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import * as authApi from '../api/authApi';
-import { setLogoutHandler } from './authEvents';
+import { clearAccessToken, getAccessToken, setAccessToken } from '../api/token';
 
-/**
- * AuthContext exposes authentication state and actions.
- * It stores JWT and user in localStorage and ensures secure usage by never logging PII.
- */
-
+// Define a noop default to avoid undefined checks in consumers
 const AuthContext = createContext({
   isAuthenticated: false,
-  token: null,
+  isInitializing: true,
   user: null,
-  // methods
-  login: async (_email, _password) => {},
-  signup: async (_payload) => {},
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  login: async () => {},
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  signup: async () => {},
   logout: () => {},
 });
 
 // PUBLIC_INTERFACE
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('auth_token'));
-  const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem('auth_user');
+  /**
+   * Provider component responsible for:
+   * - Hydrating token from storage
+   * - Validating token by calling /auth/me
+   * - Managing user state across the app
+   * - Reacting to unauthorized events emitted by axios interceptor
+   */
+  const [token, setToken] = useState(() => getAccessToken());
+  const [user, setUser] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Helper: clear all auth state safely
+  const clearAuth = useCallback(() => {
     try {
-      return raw ? JSON.parse(raw) : null;
+      clearAccessToken();
     } catch {
-      return null;
+      // ignore storage errors
     }
-  });
-
-  const isAuthenticated = Boolean(token);
-
-  const logout = useCallback(() => {
-    // Never log tokens; do not log PII.
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
     setToken(null);
     setUser(null);
   }, []);
 
+  // Listen for unauthorized events from axios interceptor to auto-logout
   useEffect(() => {
-    // Register logout handler used by API client on 401 responses
-    setLogoutHandler(() => logout);
-  }, [logout]);
+    function onUnauthorized() {
+      clearAuth();
+    }
+    window.addEventListener('auth:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
+  }, [clearAuth]);
 
-  // PUBLIC_INTERFACE
+  // On mount: if we have a token, validate by calling /auth/me
+  useEffect(() => {
+    let active = true;
+
+    async function initialize() {
+      const existing = getAccessToken();
+      if (!existing) {
+        setIsInitializing(false);
+        return;
+      }
+      const profile = await authApi.me();
+      if (!active) return;
+      if (profile?.error) {
+        // Token invalid or expired
+        clearAuth();
+      } else {
+        setUser(profile);
+        setToken(existing);
+      }
+      setIsInitializing(false);
+    }
+
+    initialize();
+    return () => {
+      active = false;
+    };
+  }, [clearAuth]);
+
+  // PUBLIC: login
   const login = useCallback(async (email, password) => {
-    // Basic validation (client-side)
-    if (!email || !password) {
-      return { error: { code: 'VALIDATION_ERROR', message: 'Email and password are required.' } };
+    // Validate inputs to avoid unnecessary requests
+    const emailStr = (email || '').toString().trim();
+    const passwordStr = (password || '').toString();
+    if (!emailStr || !passwordStr) {
+      throw new Error('Email and password are required.');
     }
-
-    // Use the authApi which normalizes the backend login response
-    const result = await authApi.login(email, password);
-    if (result?.error) {
-      // Pass through API-provided error (e.g., invalid credentials) or our normalized errors
-      return result;
+    const res = await authApi.login(emailStr, passwordStr);
+    if (res?.error) {
+      throw new Error(res.error.message || 'Login failed.');
     }
-
-    // Expect { access_token, token_type?, user? }
-    const accessToken = result?.access_token;
-    const nextUser = result?.user || null;
+    const accessToken = res?.access_token;
     if (!accessToken) {
-      // Defensive check (should be handled by authApi already)
-      return { error: { code: 'INVALID_RESPONSE', message: 'Login failed: missing token from server.' } };
+      throw new Error('Login succeeded but token was missing. Please try again or contact support.');
     }
 
-    // Persist without logging sensitive data
-    try {
-      localStorage.setItem('auth_token', accessToken);
-      if (nextUser) {
-        localStorage.setItem('auth_user', JSON.stringify(nextUser));
-      }
-    } catch {
-      // Storage may be blocked (e.g., privacy settings). Continue with in-memory token for the session.
-    }
-
+    // Persist token
+    setAccessToken(accessToken);
     setToken(accessToken);
-    setUser(nextUser);
-    return { success: true };
+
+    // Load user profile
+    const profile = await authApi.me();
+    if (profile?.error) {
+      // If failed to load profile, clear token and show a friendly error
+      clearAuth();
+      throw new Error(profile.error.message || 'Unable to load user profile.');
+    }
+    setUser(profile);
+  }, [clearAuth]);
+
+  // PUBLIC: signup
+  const signup = useCallback(async ({ email, password, full_name }) => {
+    const emailStr = (email || '').toString().trim();
+    const passwordStr = (password || '').toString();
+    const fullNameStr = (full_name || '').toString().trim() || null;
+    if (!emailStr || !passwordStr) {
+      throw new Error('Email and password are required.');
+    }
+
+    const res = await authApi.signup({ email: emailStr, password: passwordStr, full_name: fullNameStr });
+    if (res?.error) {
+      throw new Error(res.error.message || 'Signup failed.');
+    }
+    // Do not auto-login after signup; require explicit login
+    return res;
   }, []);
 
-  // PUBLIC_INTERFACE
-  const signup = useCallback(async (payload) => {
-    const { email, password } = payload || {};
-    if (!email || !password) {
-      return { error: { code: 'VALIDATION_ERROR', message: 'Email and password are required.' } };
-    }
-    const result = await authApi.signup(payload);
-    if (result?.error) {
-      return result;
-    }
-    // Optional: directly log in after signup if backend returns token-like structure
-    const accessToken = result?.access_token || result?.token;
-    if (accessToken) {
-      try {
-        localStorage.setItem('auth_token', accessToken);
-        if (result?.user) {
-          localStorage.setItem('auth_user', JSON.stringify(result.user));
-        }
-      } catch {
-        // ignore storage errors
-      }
-      setToken(accessToken);
-      setUser(result?.user || null);
-      return { success: true };
-    }
-    return { success: true };
-  }, []);
+  // PUBLIC: logout
+  const logout = useCallback(() => {
+    clearAuth();
+  }, [clearAuth]);
 
   const value = useMemo(
-    () => ({ isAuthenticated, token, user, login, signup, logout }),
-    [isAuthenticated, token, user, login, signup, logout]
+    () => ({
+      isAuthenticated: Boolean(token) && Boolean(user),
+      isInitializing,
+      user,
+      login,
+      signup,
+      logout,
+    }),
+    [isInitializing, login, logout, signup, token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

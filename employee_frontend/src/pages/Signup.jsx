@@ -3,124 +3,95 @@ import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { useAuth } from '../hooks/useAuth';
 
-function validateEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
-}
+/**
+ * Signup.jsx
+ * Create a new user account by calling POST /auth/signup.
+ * On success, navigates to /login and prompts the user to sign in.
+ */
 
 // PUBLIC_INTERFACE
 export default function Signup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ email: '', password: '', full_name: '' });
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  const validate = () => {
+    const errs = {};
+    const email = (form.email || '').toString().trim();
+    const password = (form.password || '').toString();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Enter a valid email address.';
+    if (!password || password.length < 8) errs.password = 'Password must be at least 8 characters.';
+    return errs;
+  };
 
   const onChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+    setForm((s) => ({ ...s, [name]: value }));
+    setErrors((s) => ({ ...s, [name]: '' }));
+    setApiError(null);
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setApiError(null);
-    const errs = {};
-    if (!form.name || form.name.length < 2) errs.name = 'Name must be at least 2 characters.';
-    if (!validateEmail(form.email)) errs.email = 'Please enter a valid email address.';
-    if (!form.password || form.password.length < 6) errs.password = 'Password must be at least 6 characters.';
-    if (form.password !== form.confirmPassword) errs.confirmPassword = 'Passwords do not match.';
+    setSuccessMessage(null);
+
+    const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
-    const result = await signup({ name: form.name, email: form.email, password: form.password });
-    setSubmitting(false);
-    if (result?.error) {
-      setApiError(result.error.message || 'Signup failed.');
-      return;
+    try {
+      await signup({ email: form.email, password: form.password, full_name: form.full_name });
+      setSuccessMessage('Signup successful! You can now sign in.');
+      setTimeout(() => {
+        navigate('/login', { replace: true });
+      }, 800);
+    } catch (err) {
+      const msg = (err && err.message) || 'Signup failed.';
+      setApiError(msg);
+    } finally {
+      setSubmitting(false);
     }
-    navigate('/dashboard', { replace: true });
   };
 
   return (
-    <div className="form-card" aria-label="Create Account">
-      <h1 style={{ marginTop: 0 }}>Create Account</h1>
-      <p className="help-text">Start managing your employees efficiently.</p>
+    <div>
+      <h1>Signup</h1>
+      {successMessage && <div role="status" className="help-text" style={{ color: 'var(--color-success)' }}>{successMessage}</div>}
       {apiError && <div className="form-error" role="alert">{apiError}</div>}
 
-      <form onSubmit={onSubmit} noValidate aria-label="Signup Form">
+      <form onSubmit={onSubmit} noValidate aria-label="Signup Form" className="form-card">
         <div className="form-field">
-          <label htmlFor="name">Full Name</label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            value={form.name}
-            onChange={onChange}
-            aria-invalid={!!errors.name}
-            aria-describedby="name-error"
-            required
-          />
-          {errors.name && <div id="name-error" className="form-error">{errors.name}</div>}
+          <label htmlFor="full_name">Full Name (optional)</label>
+          <input id="full_name" name="full_name" value={form.full_name} onChange={onChange} />
         </div>
 
         <div className="form-field">
           <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            data-testid="email-input"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={form.email}
-            onChange={onChange}
-            aria-invalid={!!errors.email}
-            aria-describedby="email-error"
-            required
-          />
-          {errors.email && <div id="email-error" className="form-error">{errors.email}</div>}
+          <input id="email" name="email" value={form.email} onChange={onChange} autoComplete="email" aria-invalid={Boolean(errors.email)} />
+          {errors.email && <div className="form-error">{errors.email}</div>}
         </div>
 
         <div className="form-field">
           <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            data-testid="password-input"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={form.password}
-            onChange={onChange}
-            aria-invalid={!!errors.password}
-            aria-describedby="password-error"
-            required
-          />
-          {errors.password && <div id="password-error" className="form-error">{errors.password}</div>}
+          <input id="password" name="password" value={form.password} onChange={onChange} type="password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} />
+          {errors.password && <div className="form-error">{errors.password}</div>}
         </div>
 
-        <div className="form-field">
-          <label htmlFor="confirmPassword">Confirm Password</label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            autoComplete="new-password"
-            value={form.confirmPassword}
-            onChange={onChange}
-            aria-invalid={!!errors.confirmPassword}
-            aria-describedby="confirmPassword-error"
-            required
-          />
-          {errors.confirmPassword && <div id="confirmPassword-error" className="form-error">{errors.confirmPassword}</div>}
-        </div>
-
-        <div className="row" style={{ justifyContent: 'space-between', marginTop: 16 }}>
-          <Button type="submit" disabled={submitting} ariaLabel="Create Account">
+        <div className="row" style={{ marginTop: 12 }}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? 'Creating...' : 'Create Account'}
           </Button>
-          <Link to="/login" aria-label="Go to Sign In">Already have an account?</Link>
+          <span className="help-text">Have an account?</span>
+          <Link className="help-text" to="/login" aria-label="Login link">
+            Sign in
+          </Link>
         </div>
       </form>
     </div>

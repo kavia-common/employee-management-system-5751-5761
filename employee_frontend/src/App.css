@@ -167,3 +167,24 @@ body {
   font-size: 0.75rem;
   color: var(--muted);
 }
+
+/* Toasts / banners */
+.toast {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+  margin: 8px 0;
+  border: 1px solid var(--border);
+}
+
+.toast-success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.toast-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #7f1d1d;
+}

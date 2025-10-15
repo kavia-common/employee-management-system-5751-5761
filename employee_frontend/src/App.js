@@ -1,27 +1,35 @@
 /**
  * App.js
- * Application entry that wires AuthProvider and AppRouter and applies the Executive Gray theme.
- * This file focuses on shell-only concerns; routing and business pages are isolated in routes/pages.
+ * Application entry that wires AppProvider (theme-only), AuthProvider (JWT auth),
+ * and AppRouter and applies the Executive Gray theme.
  */
 
 import React, { useEffect } from 'react';
 import './App.css';
+import './theme/styles.css';
+import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import AppRouter from './routes/AppRouter';
 
 // PUBLIC_INTERFACE
 function App() {
-  // Persist theme to root for CSS variables; default to light
+  /** Initialize theme from localStorage on first load (default to 'light'). */
   useEffect(() => {
-    const preferred = localStorage.getItem('ui_theme') || 'light';
-    document.documentElement.setAttribute('data-theme', preferred);
+    try {
+      const preferred = localStorage.getItem('ui_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', preferred);
+    } catch {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
   }, []);
 
   return (
     <div className="App">
-      <AuthProvider>
-        <AppRouter />
-      </AuthProvider>
+      <AppProvider>
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+      </AppProvider>
     </div>
   );
 }

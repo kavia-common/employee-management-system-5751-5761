@@ -1,0 +1,13 @@
+ /**
+  * styles.css
+  * Additional theme utilities for the Executive Gray palette.
+  * Keep styles minimal and accessible.
+  */
+:root {
+  --gradient: linear-gradient(135deg, rgba(55,65,81,0.1), rgba(156,163,175,0.1));
+}
+
+.header {
+  background-image: var(--gradient);
+  background-blend-mode: multiply;
+}

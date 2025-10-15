@@ -1,21 +1,23 @@
 import React from 'react';
-import { useAuth } from '../../hooks/useAuth';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../common/Button';
+import { useAppContext } from '../../hooks/useAppContext';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useAppContext();
+  const { isAuthenticated, user, logout } = useAuth();
 
-  const onLogout = () => {
+  const displayName = (user?.full_name || '').toString().trim() || (user?.email || '').toString().trim() || null;
+
+  const onSignOut = () => {
     try {
       logout();
-      // Avoid logging PII and avoid console in production
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
-        console.log(JSON.stringify({ ts: new Date().toISOString(), level: 'INFO', message: 'user_logout' }));
-      }
-      window.location.assign('/login');
     } catch {
-      // swallow
+      // ignore
+    } finally {
+      navigate('/login', { replace: true });
     }
   };
 
@@ -27,13 +29,29 @@ export default function Header() {
         </span>
         <span className="badge">Executive Gray</span>
       </div>
-      <div className="row" aria-label="User Actions">
-        <span aria-label="Current User" className="help-text">
-          {user?.name ? `Hi, ${user.name}` : 'Signed in'}
+      <div className="row" aria-label="App Actions" style={{ gap: 12 }}>
+        <span aria-label="Theme" className="help-text">
+          Theme: {theme === 'dark' ? 'Dark' : 'Light'}
         </span>
-        <Button variant="secondary" onClick={onLogout} ariaLabel="Logout">
-          Logout
+        <Button variant="secondary" onClick={toggleTheme} ariaLabel="Toggle Theme">
+          Toggle Theme
         </Button>
+        {!isAuthenticated ? (
+          <>
+            <Link to="/login" className="help-text" aria-label="Login">Login</Link>
+            <span className="help-text" aria-hidden="true">|</span>
+            <Link to="/signup" className="help-text" aria-label="Signup">Signup</Link>
+          </>
+        ) : (
+          <>
+            <span className="help-text" aria-label="Greeting">
+              {displayName ? `Hello, ${displayName}` : 'Signed in'}
+            </span>
+            <Button variant="secondary" onClick={onSignOut} ariaLabel="Sign out">
+              Sign out
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );
