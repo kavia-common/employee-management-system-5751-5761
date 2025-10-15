@@ -1,13 +1,14 @@
 /**
  * App.js
- * Application entry that wires AppProvider (theme-only) and AppRouter and applies the Executive Gray theme.
- * Authentication is removed in pure stub mode; the UI runs without tokens or env vars.
+ * Application entry that wires AppProvider (theme-only), AuthProvider (JWT auth),
+ * and AppRouter and applies the Executive Gray theme.
  */
 
 import React, { useEffect } from 'react';
 import './App.css';
 import './theme/styles.css';
 import { AppProvider } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
 import AppRouter from './routes/AppRouter';
 
 // PUBLIC_INTERFACE
@@ -25,7 +26,9 @@ function App() {
   return (
     <div className="App">
       <AppProvider>
-        <AppRouter />
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
       </AppProvider>
     </div>
   );

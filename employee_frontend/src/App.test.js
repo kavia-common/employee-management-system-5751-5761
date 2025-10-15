@@ -2,10 +2,10 @@ import { render, screen } from '@testing-library/react';
 import App from './App';
 
 /**
- * In pure stub mode, the app has no authentication and should render the dashboard by default.
+ * In authenticated mode, unauthenticated users should see the login page first.
  */
-test('renders dashboard by default', async () => {
+test('renders login page by default when unauthenticated', async () => {
   render(<App />);
-  const heading = await screen.findByRole('heading', { name: /dashboard/i });
+  const heading = await screen.findByRole('heading', { name: /login/i });
   expect(heading).toBeInTheDocument();
 });

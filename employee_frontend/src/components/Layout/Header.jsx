@@ -2,19 +2,18 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../common/Button';
 import { useAppContext } from '../../hooks/useAppContext';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function Header() {
   const navigate = useNavigate();
-  const { theme, toggleTheme, session, clearSession } = useAppContext();
+  const { theme, toggleTheme } = useAppContext();
+  const { isAuthenticated, user, logout } = useAuth();
 
-  const greeting =
-    session?.displayName && typeof session.displayName === 'string'
-      ? `Hello, ${session.displayName}`
-      : null;
+  const displayName = (user?.full_name || '').toString().trim() || (user?.email || '').toString().trim() || null;
 
   const onSignOut = () => {
     try {
-      clearSession();
+      logout();
     } catch {
       // ignore
     } finally {
@@ -37,14 +36,16 @@ export default function Header() {
         <Button variant="secondary" onClick={toggleTheme} ariaLabel="Toggle Theme">
           Toggle Theme
         </Button>
-        {!greeting ? (
-          <Link to="/login" className="help-text" aria-label="Login">
-            Login
-          </Link>
+        {!isAuthenticated ? (
+          <>
+            <Link to="/login" className="help-text" aria-label="Login">Login</Link>
+            <span className="help-text" aria-hidden="true">|</span>
+            <Link to="/signup" className="help-text" aria-label="Signup">Signup</Link>
+          </>
         ) : (
           <>
             <span className="help-text" aria-label="Greeting">
-              {greeting}
+              {displayName ? `Hello, ${displayName}` : 'Signed in'}
             </span>
             <Button variant="secondary" onClick={onSignOut} ariaLabel="Sign out">
               Sign out

@@ -1,34 +1,33 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAppContext } from '../hooks/useAppContext';
+import { useAuth } from '../hooks/useAuth';
 
 /**
  * ProtectedRoute.jsx
- * Route guard that enforces presence of a stub "session" from AppContext.
+ * Route guard that enforces presence of a valid authenticated session (JWT + /auth/me).
  *
  * Behavior:
- * - If session.displayName exists, renders children or nested routes (Outlet).
- * - If absent, redirects to /login and passes the intended location in state.from
- *   so the Login page can navigate back to the requested route upon success.
+ * - While AuthContext is initializing (checking token via /auth/me), show a lightweight loader
+ * - If authenticated, render children or nested routes (Outlet)
+ * - If unauthenticated, redirect to /login and pass the intended location in state.from
  *
  * Security:
- * - No tokens, no Authorization headers, no external services referenced.
+ * - Does not expose any sensitive information
  */
 
 // PUBLIC_INTERFACE
 export default function ProtectedRoute({ children }) {
   /** Guarded route wrapper; redirects unauthenticated users to /login. */
-  const { session } = useAppContext();
+  const { isAuthenticated, isInitializing } = useAuth();
   const location = useLocation();
 
-  const isAuthenticated =
-    Boolean(session?.displayName) && typeof session.displayName === 'string';
+  if (isInitializing) {
+    return <p className="help-text" aria-live="polite">Checking session...</p>;
+  }
 
   if (!isAuthenticated) {
-    // Replace history to avoid back-button ping-pong; preserve intended location via state.from
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // If children are provided, render them; otherwise, render nested route outlet
   return children ? <>{children}</> : <Outlet />;
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/common/Button';
-import * as mockApi from '../../services/mockApi';
+import { getEmployee, updateEmployee } from '../../api/employeeApi';
 
 function validate(form) {
   const errs = {};
@@ -25,7 +25,7 @@ export default function EmployeeEdit() {
   useEffect(() => {
     let active = true;
     async function load() {
-      const res = await mockApi.getById(id);
+      const res = await getEmployee(id);
       if (!active) return;
       if (res?.error) {
         setApiError(res.error.message);
@@ -56,7 +56,7 @@ export default function EmployeeEdit() {
     if (Object.keys(errs).length > 0) return;
 
     setSaving(true);
-    const res = await mockApi.update(id, form);
+    const res = await updateEmployee(id, form);
     setSaving(false);
     if (res?.error) {
       setApiError(res.error.message || 'Update failed.');

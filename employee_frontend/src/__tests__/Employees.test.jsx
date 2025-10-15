@@ -1,20 +1,22 @@
 import React from 'react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import AppRouter from '../routes/AppRouter';
+import { AppProvider } from '../context/AppContext';
+import { AuthProvider } from '../context/AuthContext';
 
 function renderApp(initialRoute = '/employees') {
+  // Ensure BrowserRouter inside AppRouter uses the desired initial path
   window.history.pushState({}, 'Test page', initialRoute);
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Routes>
-        <Route path="*" element={<AppRouter />} />
-      </Routes>
-    </MemoryRouter>
+    <AppProvider>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </AppProvider>
   );
 }
 
-test('renders Employees list without requiring authentication', async () => {
+test('redirects unauthenticated users to Login when accessing /employees', async () => {
   renderApp('/employees');
-  expect(await screen.findByRole('heading', { name: /employees/i })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: /login/i })).toBeInTheDocument();
 });

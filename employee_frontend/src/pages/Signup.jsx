@@ -1,35 +1,24 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/common/Button';
 import { useAuth } from '../hooks/useAuth';
 
 /**
- * Login.jsx
- * Real login form that calls POST /auth/login, stores JWT, and redirects to the requested route.
- * 
- * Validation:
- * - Email must be non-empty and a valid format
- * - Password must be at least 8 characters (basic check)
- * 
- * Security:
- * - Never logs credentials or tokens
+ * Signup.jsx
+ * Create a new user account by calling POST /auth/signup.
+ * On success, navigates to /login and prompts the user to sign in.
  */
 
 // PUBLIC_INTERFACE
-export default function Login() {
+export default function Signup() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { isAuthenticated, login } = useAuth();
+  const { signup } = useAuth();
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '', full_name: '' });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // If already authenticated, redirect to the dashboard
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const validate = () => {
     const errs = {};
@@ -38,7 +27,7 @@ export default function Login() {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Enter a valid email address.';
     if (!password || password.length < 8) errs.password = 'Password must be at least 8 characters.';
     return errs;
-    };
+  };
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -50,6 +39,7 @@ export default function Login() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setApiError(null);
+    setSuccessMessage(null);
 
     const errs = validate();
     setErrors(errs);
@@ -57,16 +47,13 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      await login(form.email, form.password);
-
-      const fromPath = location?.state?.from?.pathname;
-      const target =
-        typeof fromPath === 'string' && fromPath.startsWith('/') && fromPath !== '/login'
-          ? fromPath
-          : '/dashboard';
-      navigate(target, { replace: true });
+      await signup({ email: form.email, password: form.password, full_name: form.full_name });
+      setSuccessMessage('Signup successful! You can now sign in.');
+      setTimeout(() => {
+        navigate('/login', { replace: true });
+      }, 800);
     } catch (err) {
-      const msg = (err && err.message) || 'Login failed.';
+      const msg = (err && err.message) || 'Signup failed.';
       setApiError(msg);
     } finally {
       setSubmitting(false);
@@ -75,44 +62,35 @@ export default function Login() {
 
   return (
     <div>
-      <h1>Login</h1>
+      <h1>Signup</h1>
+      {successMessage && <div role="status" className="help-text" style={{ color: 'var(--color-success)' }}>{successMessage}</div>}
       {apiError && <div className="form-error" role="alert">{apiError}</div>}
 
-      <form onSubmit={onSubmit} noValidate aria-label="Login Form" className="form-card">
+      <form onSubmit={onSubmit} noValidate aria-label="Signup Form" className="form-card">
+        <div className="form-field">
+          <label htmlFor="full_name">Full Name (optional)</label>
+          <input id="full_name" name="full_name" value={form.full_name} onChange={onChange} />
+        </div>
+
         <div className="form-field">
           <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            name="email"
-            value={form.email}
-            onChange={onChange}
-            autoComplete="email"
-            aria-invalid={Boolean(errors.email)}
-          />
+          <input id="email" name="email" value={form.email} onChange={onChange} autoComplete="email" aria-invalid={Boolean(errors.email)} />
           {errors.email && <div className="form-error">{errors.email}</div>}
         </div>
 
         <div className="form-field">
           <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            value={form.password}
-            onChange={onChange}
-            type="password"
-            autoComplete="current-password"
-            aria-invalid={Boolean(errors.password)}
-          />
+          <input id="password" name="password" value={form.password} onChange={onChange} type="password" autoComplete="new-password" aria-invalid={Boolean(errors.password)} />
           {errors.password && <div className="form-error">{errors.password}</div>}
         </div>
 
         <div className="row" style={{ marginTop: 12 }}>
           <Button type="submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign in'}
+            {submitting ? 'Creating...' : 'Create Account'}
           </Button>
-          <span className="help-text">No account?</span>
-          <Link className="help-text" to="/signup" aria-label="Sign up link">
-            Create one
+          <span className="help-text">Have an account?</span>
+          <Link className="help-text" to="/login" aria-label="Login link">
+            Sign in
           </Link>
         </div>
       </form>

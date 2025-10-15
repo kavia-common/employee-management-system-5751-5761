@@ -1,21 +1,25 @@
-/**
- * api/client.js
- * Axios client configured for pure stub mode (no authentication).
- *
- * Behavior:
- * - Base URL from REACT_APP_API_BASE_URL or window.API_BASE_URL (normalized without trailing slash)
- * - If missing, derive from current origin:
- *     * If port is :3000 (typical React dev), switch to :3001
- *     * If localhost without explicit port, default to http://localhost:3001
- *     * Otherwise, leave baseURL empty to allow relative path / same-origin proxying
- * - Adds X-Correlation-ID per request for basic tracing
- * - Minimal, safe JSON-structured logging in development honoring REACT_APP_LOG_LEVEL
- *
- * Security:
- * - No tokens, no auth headers, no PII in logs.
- */
+ /**
+  * api/client.js
+  * Axios client configured for real backend integration with JWT authentication.
+  *
+  * Behavior:
+  * - Base URL from REACT_APP_API_BASE_URL (normalized without trailing slash)
+  * - If missing, derive from current origin:
+  *     * If port is :3000 (typical React dev), switch to :3001
+  *     * If localhost without explicit port, default to http://localhost:3001
+  *     * If preview host on :3000, replace with :3001 preserving protocol/host
+  *     * Otherwise, leave baseURL empty to allow relative paths (proxy)
+  * - Adds X-Correlation-ID per request for tracing
+  * - Adds Authorization: Bearer <token> when token is available
+  * - On 401 responses, emits a window event 'auth:unauthorized' for the app to react (e.g., logout)
+  *
+  * Security:
+  * - Does NOT log tokens or PII
+  * - Uses short, structured logs in dev honoring REACT_APP_LOG_LEVEL
+  */
 
 import axios from 'axios';
+import { getAccessToken } from './token';
 
 const LOG_LEVEL = (process.env.REACT_APP_LOG_LEVEL || 'INFO').toUpperCase();
 const NODE_ENV = process.env.NODE_ENV;
@@ -35,7 +39,6 @@ function safeLog(level, message, meta = {}) {
   delete redactedMeta.password;
   delete redactedMeta.token;
   delete redactedMeta.authorization;
-
   // eslint-disable-next-line no-console
   console.log(
     JSON.stringify({
@@ -49,9 +52,7 @@ function safeLog(level, message, meta = {}) {
 
 function correlationId() {
   try {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
     return 'cid-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   } catch {
     return 'cid-' + Date.now();
@@ -59,31 +60,17 @@ function correlationId() {
 }
 
 /**
- * Derive and normalize API base URL for stub mode.
+ * Derive and normalize API base URL:
  * - Prefer REACT_APP_API_BASE_URL
  * - Normalize by removing trailing slashes
  * - Fallback from current window.location when available
  */
 function deriveBaseUrl() {
-  // 1) Prefer env
-  const envRaw = (process.env.REACT_APP_API_BASE_URL || 'https://vscode-internal-23063-beta.beta01.cloud.kavia.ai:3001').trim();
-  let derived = envRaw;
-  let source = envRaw ? 'env' : null;
+  // 1) Prefer env, normalized
+  let derived = (process.env.REACT_APP_API_BASE_URL || '').trim();
+  let source = derived ? 'env' : null;
 
-  // 2) Then window.API_BASE_URL if provided by host page
-  if (!derived && typeof window !== 'undefined') {
-    try {
-      const winRaw = (window.API_BASE_URL || '').toString().trim();
-      if (winRaw) {
-        derived = winRaw;
-        source = 'window';
-      }
-    } catch {
-      // ignore if window/API_BASE_URL not accessible
-    }
-  }
-
-  // 3) Fallback from current window.location when available
+  // 2) Fallback from current window.location when available
   if (!derived && typeof window !== 'undefined' && window.location) {
     const { protocol, hostname, port } = window.location;
 
@@ -91,15 +78,21 @@ function deriveBaseUrl() {
       // Replace :3000 (frontend) with :3001 (backend)
       derived = `${protocol}//${hostname}:3001`;
       source = 'fallback_port_switch';
-      safeLog('WARN', 'api_base_url_fallback_used', { reason: 'origin_port_3000_replaced', fallback: derived });
+      safeLog('WARN', 'api_base_url_fallback_used', {
+        reason: 'origin_port_3000_replaced',
+        fallback: derived,
+      });
     } else {
       const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
       if (isLocalhost) {
-        derived = 'https://vscode-internal-23063-beta.beta01.cloud.kavia.ai:3001';
+        derived = 'http://localhost:3001';
         source = 'fallback_localhost';
-        safeLog('WARN', 'api_base_url_fallback_used', { reason: 'env_missing_localhost', fallback: derived });
+        safeLog('WARN', 'api_base_url_fallback_used', {
+          reason: 'env_missing_localhost',
+          fallback: derived,
+        });
       } else {
-        // Use relative path for same-origin proxy setups
+        // Use relative path for same-origin/proxy setups
         derived = '';
         source = 'relative';
         safeLog('INFO', 'api_base_url_relative', { reason: 'same_origin_or_proxy' });
@@ -107,7 +100,7 @@ function deriveBaseUrl() {
     }
   }
 
-  // Normalize (remove trailing slashes)
+  // 3) Normalize (remove trailing slashes)
   if (derived && derived.endsWith('/')) {
     derived = derived.replace(/\/*$/, '');
   }
@@ -123,7 +116,7 @@ function deriveBaseUrl() {
 
 const BASE_URL = deriveBaseUrl();
 
-// Dev convenience: print resolved base URL
+// Dev convenience: print resolved base URL once in development
 if (process.env.NODE_ENV === 'development' && typeof console !== 'undefined' && console.info) {
   try {
     // eslint-disable-next-line no-console
@@ -153,6 +146,16 @@ api.interceptors.request.use(
       if (!isAbsolute && !cfg.url.startsWith('/')) {
         cfg.url = `/${cfg.url}`;
       }
+    }
+
+    // Attach Authorization header if token is available
+    try {
+      const token = getAccessToken();
+      if (token) {
+        cfg.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // ignore token errors
     }
 
     const cid = correlationId();
@@ -188,6 +191,16 @@ api.interceptors.response.use(
       correlationId();
 
     safeLog('ERROR', 'http_response_error', { status, correlationId: cid });
+
+    // Emit unauthorized event for global handling (e.g., AuthContext to logout)
+    if (status === 401 && typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { correlationId: cid } }));
+      } catch {
+        // ignore dispatch errors
+      }
+    }
+
     return Promise.reject({
       error: {
         code: status || error?.code || 'HTTP_ERROR',

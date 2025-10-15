@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Sidebar from '../components/Layout/Sidebar';
@@ -8,24 +8,18 @@ import EmployeeCreate from '../pages/Employees/Create';
 import EmployeeEdit from '../pages/Employees/Edit';
 import EmployeeDetail from '../pages/Employees/Detail';
 import Login from '../pages/Login';
-import { seedIfEmpty } from '../services/mockApi';
+import Signup from '../pages/Signup';
 import ProtectedRoute from './ProtectedRoute';
 
 /**
  * AppRouter defines application routes.
- * - /login is public.
- * - Main app routes (/dashboard, /employees/*) are protected via ProtectedRoute and require
- *   a stub session (session.displayName) from AppContext.
+ * - /login and /signup are public.
+ * - Main app routes (/dashboard, /employees/*) are protected via ProtectedRoute and require a valid authenticated session.
  * - Default routes redirect to /dashboard (which, if not authenticated, will redirect to /login).
  */
 
 // PUBLIC_INTERFACE
 export default function AppRouter() {
-  // Initialize mock dataset on first load for richer demo data
-  useEffect(() => {
-    seedIfEmpty();
-  }, []);
-
   return (
     <BrowserRouter>
       <div className="layout">
@@ -33,8 +27,9 @@ export default function AppRouter() {
         <Sidebar />
         <main className="content">
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
 
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
