@@ -69,7 +69,7 @@ describe('API client baseURL configuration (stub mode)', () => {
     const originalLocation = window.location;
     delete window.location;
     window.location = {
-      hostname: 'vscode-internal-19668-beta.beta01.cloud.kavia.ai',
+      hostname: 'vscode-internal-22821-beta.beta01.cloud.kavia.ai',
       port: '3000',
       protocol: 'https:',
       pathname: '/',
@@ -79,7 +79,7 @@ describe('API client baseURL configuration (stub mode)', () => {
     await import('../api/client');
 
     const callArgs = axiosCreateMock.mock.calls[0][0] || {};
-    expect(callArgs.baseURL).toBe('https://vscode-internal-19668-beta.beta01.cloud.kavia.ai:3001');
+    expect(callArgs.baseURL).toBe('https://vscode-internal-22821-beta.beta01.cloud.kavia.ai:3001');
 
     window.location = originalLocation;
   });
